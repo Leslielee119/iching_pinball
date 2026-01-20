@@ -1,4 +1,3 @@
--- src/entities/TriangleBumper.lua
 local class = require "src.utils.class"
 local Config = require "src.conf.GameConfig"
 
@@ -8,31 +7,28 @@ function TriangleBumper:init(world, x, y, side)
     self.x, self.y = x, y
     self.side = side 
     
-    local w = Config.earth_bumper.width
-    local h = Config.earth_bumper.height
+    local w, h = Config.earth_bumper.width, Config.earth_bumper.height
     
     self.body = love.physics.newBody(world, x, y, "static")
     
-    -- 【修改】形状优化：倾斜的弹射台
-    -- 坐标原点 (0,0) 是三角形的“顶点”
     local points = {}
+    
+    -- 【修改核心】：调整顶点坐标，使靠墙的一侧垂直
     if side == "left" then
-        -- 左侧：放在左挡板上方
-        -- 形状：直角边在左侧和上侧，斜边朝向右下 (导向挡板)
-        -- 或者：更标准的 Slingshot 是斜边朝向右上 (把球弹回场内)
-        -- 我们做一个向内倾斜的形状
+        -- 左侧：最左边垂直 (X坐标相同，这里设为 -20)
         points = {
-            0, 0,           -- 顶点 (Top)
-            -20, h,         -- 左下 (Bottom-Left, 稍微向外扩)
-            w, h            -- 右下 (Bottom-Right, 斜面底端)
+            -20, -20,       -- 左上 (Top-Left) -> 垂直基准线
+            -20, h + 10,    -- 左下 (Bottom-Left) -> 垂直基准线
+            w, h + 10,      -- 右下 (斜面底部)
+            10, 10          -- 斜面折点
         }
-        -- 这样 (0,0) 到 (w,h) 就是那个弹射斜面
     else
-        -- 右侧：镜像
+        -- 右侧：最右边垂直 (X坐标相同，这里设为 20)
         points = {
-            0, 0,           -- 顶点
-            -w, h,          -- 左下 (斜面底端)
-            20, h           -- 右下 (向外扩)
+            20, -20,        -- 右上 (Top-Right) -> 垂直基准线
+            -10, 10,        -- 斜面折点
+            -w, h + 10,     -- 左下 (斜面底部)
+            20, h + 10      -- 右下 (Bottom-Right) -> 垂直基准线
         }
     end
     
@@ -45,6 +41,7 @@ function TriangleBumper:init(world, x, y, side)
     self.flashTimer = 0
 end
 
+-- 下面的 update, hit, draw 函数保持不变，不需要修改
 function TriangleBumper:update(dt)
     if self.flashTimer > 0 then self.flashTimer = self.flashTimer - dt end
 end
@@ -54,25 +51,33 @@ function TriangleBumper:hit()
 end
 
 function TriangleBumper:draw()
-    if self.flashTimer > 0 then
-        love.graphics.setColor(Config.colors.earth_bumper_active)
-    else
-        love.graphics.setColor(Config.colors.earth_bumper)
+    if self.flashTimer > 0 then love.graphics.setColor(Config.colors.earth_bumper_active)
+    else love.graphics.setColor(Config.colors.earth_bumper) end
+    
+    local height = 25 
+    local points = {self.body:getWorldPoints(self.shape:getPoints())}
+    
+    -- 画顶面
+    local topPoints = {}
+    for i = 1, #points, 2 do
+        local sx, sy = toScreen(points[i], points[i+1], height)
+        table.insert(topPoints, sx)
+        table.insert(topPoints, sy)
     end
+    love.graphics.polygon("fill", topPoints)
     
-    love.graphics.polygon("fill", self.body:getWorldPoints(self.shape:getPoints()))
-    
+    -- 画边框
     love.graphics.setColor(1, 1, 1, 0.5)
     love.graphics.setLineWidth(2)
-    love.graphics.polygon("line", self.body:getWorldPoints(self.shape:getPoints()))
+    love.graphics.polygon("line", topPoints)
     
-    -- 绘制“坤”字装饰
-    love.graphics.setColor(0, 0, 0, 0.5)
-    local cx, cy = self.body:getWorldCenter()
-    -- 简单的三横线画法
-    love.graphics.rectangle("fill", cx-8, cy-8, 16, 3)
-    love.graphics.rectangle("fill", cx-8, cy, 16, 3)
-    love.graphics.rectangle("fill", cx-8, cy+8, 16, 3)
+    -- 画侧面连接线
+    love.graphics.setColor(0, 0, 0, 0.2)
+    for i = 1, #points, 2 do
+        local bx, by = toScreen(points[i], points[i+1], 0)
+        local tx, ty = toScreen(points[i], points[i+1], height)
+        love.graphics.line(bx, by, tx, ty)
+    end
 end
 
 return TriangleBumper

@@ -12,17 +12,15 @@ function Ball:init(world, cx, cy)
 
     self.body = love.physics.newBody(world, self.startX, self.startY, "dynamic")
     self.shape = love.physics.newCircleShape(self.radius)
-    self.fixture = love.physics.newFixture(self.body, self.shape, 1) -- 密度1
+    self.fixture = love.physics.newFixture(self.body, self.shape, 1) 
     
-    self.fixture:setRestitution(0.3) -- 球不需要太弹，主要靠板子撞
+    self.fixture:setRestitution(0.3)
     self.fixture:setUserData({type = "Ball", object = self})
     
-    -- 必须开启子弹模式
     self.body:setBullet(true) 
 end
 
 function Ball:update(dt)
-    -- 限制最大速度，防止飞出宇宙
     local vx, vy = self.body:getLinearVelocity()
     local max_speed = 3000
     if vx*vx + vy*vy > max_speed*max_speed then
@@ -37,8 +35,30 @@ function Ball:reset()
 end
 
 function Ball:draw()
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.circle("fill", self.body:getX(), self.body:getY(), self.radius)
+    local x, y = self.body:getPosition()
+    local r = self.radius
+    local tilt = Config.view.tilt or 0.7
+    
+    -- 1. 绘制影子 (Z=0)
+    love.graphics.setColor(0, 0, 0, 0.4)
+    local sx_shadow, sy_shadow = toScreen(x, y, 0)
+    -- 影子压扁
+    love.graphics.ellipse("fill", sx_shadow, sy_shadow, r, r * tilt)
+    
+    -- 2. 绘制球体 (Z=Config.view.ball_height)
+    local h = Config.view.ball_height or 12
+    local sx, sy = toScreen(x, y, h)
+    
+    -- 恢复球的颜色 (由 main.lua 外部设置，或这里重置)
+    -- 注意：main.lua 里 set color 会影响这里，这里最好不强制 set white
+    -- love.graphics.setColor(1, 1, 1) 
+    
+    -- 球体视觉上是圆的，不压扁
+    love.graphics.circle("fill", sx, sy, r)
+    
+    -- 高光
+    love.graphics.setColor(1, 1, 1, 0.8)
+    love.graphics.circle("fill", sx - r*0.3, sy - r*0.3, r*0.3)
 end
 
 return Ball

@@ -6,7 +6,7 @@ return {
     -- 2. 颜色配置 (包含所有阶段的颜色)
     colors = {
         -- 基础环境
-        background = {0.1, 0.1, 0.15}, -- 【之前报错就是因为缺了这个】
+        background = {0.1, 0.1, 0.15}, 
         wall = {0.3, 0.3, 0.4},
         
         -- 实体
@@ -26,6 +26,16 @@ return {
         star_on = {1.0, 0.9, 0.2},
         star_line = {1.0, 1.0, 0.8, 0.5}
     },
+
+
+    -- 【新增】2.5D 视觉参数
+    view = {
+        tilt = 0.7,       -- 倾斜系数 (0.6~0.8 效果最好)
+        wall_height = 40, -- 墙壁高度
+        ball_height = 12, -- 球的视觉半径/高度
+        obs_height = 20   -- 障碍物高度
+    },
+
 
     -- 3. 物理参数
     physics = { 
@@ -54,9 +64,9 @@ return {
         
         -- 三角弹射器
         left_bumper_x = 320, 
-        left_bumper_y = 520,
+        left_bumper_y = 470,
         right_bumper_x = 880,
-        right_bumper_y = 520
+        right_bumper_y = 470
     },
 
     -- 5. 组件参数
