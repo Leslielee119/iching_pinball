@@ -10,38 +10,22 @@ function DestructibleObstacle:init(world, x, y)
     self.x, self.y = x, y
     self.is_destroyed = false
     
-    -- 单个分块的大小
-    self.part_size = 20 
+    -- 【修改】改为圆形半径
+    self.radius = 25 
     
-    -- 创建主刚体 (Static，因为没碎之前是不动的)
+    -- 创建刚体 (Static)
     self.body = love.physics.newBody(world, x, y, "static")
     
-    -- 【核心逻辑】拼图法：给同一个 Body 赋予 4 个 Fixture
-    -- 形状排列：
-    -- [1][2]
-    -- [3][4]
-    local s = self.part_size
-    local offset = s / 2
+    -- 【修改】使用圆形形状
+    self.shape = love.physics.newCircleShape(self.radius)
+    self.fixture = love.physics.newFixture(self.body, self.shape)
     
-    -- 我们记录这4个部分的相对偏移，方便破碎时生成碎片
-    self.parts = {
-        {x = -offset, y = -offset}, -- 左上
-        {x = offset,  y = -offset}, -- 右上
-        {x = -offset, y = offset},  -- 左下
-        {x = offset,  y = offset}   -- 右下
-    }
-    
-    for _, part in ipairs(self.parts) do
-        -- newRectangleShape(x, y, w, h, angle) 这里的x,y是相对于body中心的偏移
-        local shape = love.physics.newRectangleShape(part.x, part.y, s, s, 0)
-        local fixture = love.physics.newFixture(self.body, shape)
-        fixture:setRestitution(0.5)
-        -- 所有部分的 UserData 都指向同一个对象
-        fixture:setUserData({type = "Destructible", object = self})
-    end
+    -- 弹性设高一点，增加反弹乐趣
+    self.fixture:setRestitution(0.8)
+    self.fixture:setUserData({type = "Destructible", object = self})
 end
 
--- 破碎函数：返回一组碎片对象
+-- 破碎函数
 function DestructibleObstacle:breakApart(impactX, impactY, impactForce)
     if self.is_destroyed then return {} end
     self.is_destroyed = true
@@ -50,25 +34,30 @@ function DestructibleObstacle:breakApart(impactX, impactY, impactForce)
     self.body:destroy()
     self.body = nil
     
-    -- 2. 生成碎片
+    -- 2. 生成碎片 (4个小球向四周炸开)
     local debris_list = {}
-    local speed_mod = impactForce * 0.5 -- 碎片飞散的速度取决于撞击力度
+    -- 碎片飞散速度系数 (基于撞击力度)
+    local speed_mod = math.max(impactForce * 0.8, 200) 
     
-    for _, part in ipairs(self.parts) do
-        -- 计算碎片的世界坐标
-        local worldX = self.x + part.x
-        local worldY = self.y + part.y
+    -- 在 0, 90, 180, 270 度方向生成碎片
+    for i = 1, 4 do
+        local angle = (i-1) * (math.pi / 2) + (math.pi/4) -- 45度角发射
         
-        -- 计算飞散向量 (从中心向外爆)
-        -- 归一化方向向量
-        local len = math.sqrt(part.x^2 + part.y^2)
-        local dirX, dirY = part.x / len, part.y / len
+        -- 碎片产生位置 (从圆心向外偏移一点)
+        local offset = self.radius * 0.5
+        local dx = math.cos(angle) * offset
+        local dy = math.sin(angle) * offset
         
-        local vx = dirX * speed_mod
-        local vy = dirY * speed_mod
+        local worldX = self.x + dx
+        local worldY = self.y + dy
         
-        -- 创建碎片对象
-        local d = Debris(self.world, worldX, worldY, self.part_size, vx, vy)
+        -- 碎片速度向量
+        local vx = math.cos(angle) * speed_mod
+        local vy = math.sin(angle) * speed_mod
+        
+        -- 创建碎片 (碎片半径是本体的一半的一半)
+        local size = self.radius * 0.4
+        local d = Debris(self.world, worldX, worldY, size, vx, vy)
         table.insert(debris_list, d)
     end
     
@@ -81,23 +70,17 @@ function DestructibleObstacle:draw()
     local c = Config.colors.obstacle_intact
     love.graphics.setColor(c[1], c[2], c[3])
     
-    -- 因为我们是一个Body带多个Fixture，需要遍历绘制
-    -- 或者因为我们知道它是怎么拼的，直接画4个方块
-    for _, part in ipairs(self.parts) do
-        -- 简单画法：利用 love.graphics.translate
-        love.graphics.push()
-        love.graphics.translate(self.x + part.x, self.y + part.y)
-        -- 画中心矩形
-        love.graphics.rectangle("fill", -self.part_size/2, -self.part_size/2, self.part_size, self.part_size)
-        -- 画黑边
-        love.graphics.setColor(0, 0, 0)
-        love.graphics.setLineWidth(2)
-        love.graphics.rectangle("line", -self.part_size/2, -self.part_size/2, self.part_size, self.part_size)
-        love.graphics.pop()
-        
-        -- 恢复颜色
-        love.graphics.setColor(c[1], c[2], c[3])
-    end
+    -- 【修改】绘制圆形
+    love.graphics.circle("fill", self.x, self.y, self.radius)
+    
+    -- 画个漂亮的边框
+    love.graphics.setColor(1, 1, 1, 0.5)
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", self.x, self.y, self.radius)
+    
+    -- 画个圆心点缀
+    love.graphics.setColor(1, 1, 1, 0.3)
+    love.graphics.circle("fill", self.x, self.y, self.radius * 0.3)
 end
 
 return DestructibleObstacle

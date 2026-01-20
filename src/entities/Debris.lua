@@ -6,21 +6,19 @@ local Debris = class()
 
 function Debris:init(world, x, y, size, vx, vy)
     self.lifetime = Config.destruction.debris_lifetime
+    self.radius = size -- 使用半径
     
-    -- 碎片是动态的，会被弹飞
     self.body = love.physics.newBody(world, x, y, "dynamic")
-    self.shape = love.physics.newRectangleShape(size, size)
-    self.fixture = love.physics.newFixture(self.body, self.shape, 0.5) -- 密度小一点
+    -- 【修改】碎片也是圆形的
+    self.shape = love.physics.newCircleShape(self.radius)
+    self.fixture = love.physics.newFixture(self.body, self.shape, 0.5)
     
-    self.fixture:setRestitution(0.3)
-    -- 设置碰撞过滤器：碎片之间不碰撞(可选)，或者不跟球碰撞(groupIndex负数)
-    -- 这里我们让它跟谁都碰，制造混乱感
-    
+    self.fixture:setRestitution(0.5)
     self.fixture:setUserData({type = "Debris", object = self})
     
-    -- 继承一点初速度，并加上随机旋转
     self.body:setLinearVelocity(vx, vy)
-    self.body:setAngularVelocity(love.math.random(-10, 10))
+    -- 阻尼大一点，让它飞一会就慢下来
+    self.body:setLinearDamping(0.5) 
 end
 
 function Debris:update(dt)
@@ -32,12 +30,11 @@ function Debris:isDead()
 end
 
 function Debris:draw()
-    -- 根据寿命透明度渐变
     local alpha = self.lifetime / Config.destruction.debris_lifetime
     local c = Config.colors.obstacle_debris
     
     love.graphics.setColor(c[1], c[2], c[3], alpha)
-    love.graphics.polygon("fill", self.body:getWorldPoints(self.shape:getPoints()))
+    love.graphics.circle("fill", self.body:getX(), self.body:getY(), self.radius)
 end
 
 function Debris:destroy()
